@@ -1,0 +1,100 @@
+name: appmap-analysis
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main # Change this to the name of the mainline branch
+  schedule:
+    - cron: '0 0 * * 0'
+
+permissions:
+  # Read the baseline artifact in order to perform the AppMap comparison.
+  actions: read
+  # Commit the AppMap configuration.
+  # If the EndBug/add-and-commit is removed, this can be changed to 'read'.
+  contents: write
+  # Add check annotations to the source code when a problem is detected.
+  checks: write
+  # Add a comment to the pull request.
+  pull-requests: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: misago
+          POSTGRES_PASSWORD: misago
+          POSTGRES_DB: misago
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          
+      - name: Install AppMap tools
+        uses: getappmap/install-action@v1
+        with:
+          project-type: pip
+          build-file: "requirements.txt"
+      - name: Commit changes
+        if: ${{ matrix.group == 0}}
+        uses: EndBug/add-and-commit@v9
+        
+      - name: Pytest
+        env:
+          DJANGO_SETTINGS_MODULE: devproject.test_settings
+          POSTGRES_DB: misago
+          POSTGRES_USER: misago
+          POSTGRES_PASSWORD: misago
+          POSTGRES_HOST: localhost
+        run: | 
+          pytest --no-cov --splits 18 --group ${{ matrix.group }}
+
+      - name: Archive AppMaps
+        if: always()
+        uses: getappmap/archive-action@v1
+        with:
+          archive-id: ${{ matrix.group }} # Set this equal to the unique index of the runner
+
+
+  merge-and-archive:
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [test]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Install AppMap tools
+        uses: getappmap/install-action@v1
+        with:
+          install-appmap-library: false
+
+      - name: Merge AppMaps
+        uses: getappmap/archive-action/merge@v1
+        with:
+          revision: ${{ github.event.pull_request.base.sha }}
+          archive-count: 18
