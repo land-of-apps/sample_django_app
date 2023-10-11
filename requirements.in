@@ -19,6 +19,7 @@ pytest
 pytest-cov
 pytest-django
 pytest-mock
+pytest-split
 pytz
 requests
 responses
