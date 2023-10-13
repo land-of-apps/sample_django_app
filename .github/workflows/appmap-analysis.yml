@@ -9,15 +9,7 @@ on:
     - cron: '0 0 * * 0'
 
 permissions:
-  # Read the baseline artifact in order to perform the AppMap comparison.
-  actions: read
-  # Commit the AppMap configuration.
-  # If the EndBug/add-and-commit is removed, this can be changed to 'read'.
   contents: write
-  # Add check annotations to the source code when a problem is detected.
-  checks: write
-  # Add a comment to the pull request.
-  pull-requests: write
 
 jobs:
   test:
@@ -39,8 +31,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-        with:
-          ref: ${{ github.event.pull_request.head.ref }}
+        
       - name: Set up Python 3.11
         uses: actions/setup-python@v4
         with:
@@ -54,12 +45,8 @@ jobs:
       - name: Install AppMap tools
         uses: getappmap/install-action@v1
         with:
-          project-type: pip
-          build-file: "requirements.txt"
-      - name: Commit changes
-        if: ${{ matrix.group == 1}}
-        uses: EndBug/add-and-commit@v9
-        
+          install-appmap-library: false
+
       - name: Pytest
         env:
           DJANGO_SETTINGS_MODULE: devproject.test_settings
