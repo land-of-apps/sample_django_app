@@ -6,7 +6,7 @@ on:
     branches:
       - main # Change this to the name of the mainline branch
   schedule:
-    - cron: '0 0 * * 0'
+    - cron: "0 0 * * 0"
 
 permissions:
   # Read the baseline artifact in order to perform the AppMap comparison.
@@ -45,12 +45,12 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: "3.11"
-      
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -e .
-          
+
       - name: Install AppMap tools
         uses: getappmap/install-action@v1
         with:
@@ -59,7 +59,7 @@ jobs:
       - name: Commit changes
         if: ${{ matrix.group == 1}}
         uses: EndBug/add-and-commit@v9
-        
+
       - name: Pytest
         env:
           DJANGO_SETTINGS_MODULE: devproject.test_settings
@@ -67,7 +67,7 @@ jobs:
           POSTGRES_USER: misago
           POSTGRES_PASSWORD: misago
           POSTGRES_HOST: localhost
-        run: | 
+        run: |
           pytest --no-cov --splits 4 --group ${{ matrix.group }}
 
       - name: Set matrix group env var with zero-based numbering
@@ -77,7 +77,7 @@ jobs:
           NUM: ${{ matrix.group }}
         run: |
           echo "ARCHIVE_ID=$(($NUM - 1))" >> $GITHUB_OUTPUT
-      
+
       - name: Delete Request AppMaps
         if: always()
         run: |
@@ -85,10 +85,9 @@ jobs:
 
       - name: Archive AppMaps
         if: always()
-        uses: getappmap/archive-action@v1
+        uses: getappmap/archive-action@feat/report-inventory-on-merge
         with:
           archive-id: ${{ steps.set-matrix-group-var.outputs.ARCHIVE_ID }}
-
 
   merge-and-archive:
     runs-on: ubuntu-latest
@@ -107,7 +106,7 @@ jobs:
           install-appmap-library: false
 
       - name: Merge AppMaps
-        uses: getappmap/archive-action/merge@v1
+        uses: getappmap/archive-action/merge@feat/report-inventory-on-merge
         with:
           revision: ${{ github.event.pull_request.base.sha }}
           archive-count: 4
