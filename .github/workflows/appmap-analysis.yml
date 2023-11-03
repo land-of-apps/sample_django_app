@@ -89,25 +89,14 @@ jobs:
         with:
           archive-id: ${{ steps.set-matrix-group-var.outputs.ARCHIVE_ID }}
 
-
-  merge-and-archive:
-    runs-on: ubuntu-latest
+  appmap-analysis:
     if: always()
     needs: [test]
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          ref: ${{ github.event.pull_request.head.ref }}
-
-      - name: Install AppMap tools
-        uses: getappmap/install-action@v1
-        with:
-          install-appmap-library: false
-
-      - name: Merge AppMaps
-        uses: getappmap/archive-action/merge@v1
-        with:
-          revision: ${{ github.event.pull_request.base.sha }}
-          archive-count: 4
+    uses: getappmap/analyze-action/.github/workflows/appmap-analysis-matrix.yml@v1
+    with:
+      archive-count: 4
+    permissions:
+      actions: read
+      contents: read
+      checks: write
+      pull-requests: write
