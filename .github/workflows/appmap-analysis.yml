@@ -1,0 +1,86 @@
+name: appmap-analysis
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main # Change this to the name of the mainline branch
+  schedule:
+    - cron: '0 0 * * 0'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [1, 2, 3, 4]
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: misago
+          POSTGRES_PASSWORD: misago
+          POSTGRES_DB: misago
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          
+      - name: Install AppMap tools
+        uses: getappmap/install-action@v1
+        with:
+          install-appmap-library: false
+        
+      - name: Pytest
+        env:
+          DJANGO_SETTINGS_MODULE: devproject.test_settings
+          POSTGRES_DB: misago
+          POSTGRES_USER: misago
+          POSTGRES_PASSWORD: misago
+          POSTGRES_HOST: localhost
+        run: | 
+          pytest --no-cov --splits 4 --group ${{ matrix.group }}
+
+      - name: Set matrix group env var with zero-based numbering
+        if: always()
+        id: set-matrix-group-var
+        env:
+          NUM: ${{ matrix.group }}
+        run: |
+          echo "ARCHIVE_ID=$(($NUM - 1))" >> $GITHUB_OUTPUT
+      
+      - name: Delete Request AppMaps
+        if: always()
+        run: |
+          rm -rfv tmp/appmap/requests
+
+      - name: Archive AppMaps
+        if: always()
+        uses: getappmap/archive-action@v1
+        with:
+          archive-id: ${{ steps.set-matrix-group-var.outputs.ARCHIVE_ID }}
+
+  appmap-analysis:
+    if: always()
+    needs: [test]
+    uses: getappmap/analyze-action/.github/workflows/appmap-analysis-matrix.yml@v1
+    with:
+      archive-count: 4
+    permissions:
+      actions: read
+      contents: read
+      checks: write
+      pull-requests: write
